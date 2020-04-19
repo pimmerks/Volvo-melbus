@@ -1,0 +1,35 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceRoot}/",
+                "D:\\Program Files (x86)\\Arduino\\tools\\",
+                "D:\\Program Files (x86)\\Arduino\\hardware\\tools\\avr\\**",
+                "D:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\**"
+            ],
+            "forcedInclude": [
+                "D:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\cores\\arduino\\Arduino.h"
+            ],
+            "defines": [
+                "__CC_ARM",
+                "F_CPU=48000000L",
+                "ARDUINO=10607",
+                "ARDUINO_SAMD_MKRWAN1300",
+                "ARDUINO_ARCH_SAMD",
+                "USE_ARDUINO_MKR_PIN_LAYOUT",
+                "__SAMD21G18A__",
+                "USB_VID=0x2341",
+                "USB_PID=0x8053",
+                "USBCON",
+                "USE_BQ24195L_PMIC",
+                "VERY_LOW_POWER"
+            ],
+            "compilerPath": "D:\\Program Files (x86)\\Arduino\\hardware\\tools\\avr\\bin\\avr-gcc.exe",
+            "intelliSenseMode": "gcc-x64",
+            "cStandard": "c11",
+            "cppStandard": "c++11"
+        }
+    ],
+    "version": 4
+}
