@@ -37,7 +37,6 @@ byte textLine[4][36] = {
   {"4=cycle R col"}     //changes if pressing 4-button
 };
 
-
 // some CDC (CD-CHANGER) data
 byte trackInfo[] = {0x00, 0x02, 0x00, cd, 0x80, track, 0xC7, 0x0A, 0x02}; //9 bytes
 byte startByte = 0x08; //on powerup - change trackInfo[1] & [8] to this
@@ -542,7 +541,6 @@ void loop() {
     BUSY = PIND & (1 << MELBUS_BUSY);
   }
 
-
   //Do other stuff here if you want. MELBUS lines are free now. BUSY = IDLE (HIGH)
   //Don't take too much time though, since BUSY might go active anytime, and then we'd better be ready to receive.
 
@@ -605,14 +603,13 @@ void loop() {
     reqMasterFlag = false;
   }
 
-//  if (runPeriodically == 0) {
-//    float battery = getBatV();
-//    String message = "BAT: " + String(battery, 1) + "V" + '\0';
-//    runPeriodically = 100000;
-//    textRow = 2;
-//    message.getBytes(customText[textRow - 1], 36);
-//    reqMaster();
-//  }
+ if (runPeriodically == 0) {
+   // String message = "BAT: " + String(battery, 1) + "V" + '\0';
+   runPeriodically = 100000;
+  //  textRow = 2;
+  //  message.getBytes(customText[textRow - 1], 36);
+  //  reqMaster();
+ }
 }
 
 
@@ -721,13 +718,11 @@ void MELBUS_CLOCK_INTERRUPT() {
 
     //Reset bitcount to first bit in byte
     melbus_Bitposition = 7;
-  }
-  else {
+  } else {
     //set bitnumber to address of next bit in byte
     melbus_Bitposition--;
   }
 }
-
 
 void SendText(byte rowNum) {
   //Disable interrupt on INT_NUM quicker than: detachInterrupt(MELBUS_CLOCKBIT_INT);
