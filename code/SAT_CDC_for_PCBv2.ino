@@ -30,42 +30,15 @@
 #define MELBUS_DATA (byte)3     //Pin D3  - Data
 #define MELBUS_BUSY (byte)4     //Pin D4  - Busy
 
-const byte mutePin = 9;
-const byte playPin = 10;
-const byte prevPin = 11;
-const byte nextPin = 12;
-const byte upPin = 7;    //volume up (not used on PCB)
-const byte downPin = 8;  //volume down (not used on PCB)
-
-const byte LED_RED_LFT = 14;  //A0
-const byte LED_GRN_LFT = 15;  //A1
-const byte LED_BLU_LFT = 16;  //A2
-const byte LED_RED_RGT = 19;  //A3
-const byte LED_GRN_RGT = 18;  //A4
-const byte LED_BLU_RGT = 17;  //A5
-const byte MISC = 20;         //A6
-const byte BATTERY = 21;      //A7 - PCB uses this
-
-byte lftClr;
-byte rgtClr;
-String colors[8] = {
-  "Black ", "Blue  ", "Green ", "Cyan  ", "Red   ", "Purple", "Yellow", "White "
-};
-
-const int R_CAR = 10; //cable resistance from battery to device
-const int R_1 = 3300; //r1 of voltage divider (connected to GND)
-const int R_2 = 6800; //r2 of voltage divider (connected to RAW)
-const float T_LOSS = 0.8; //if circuit is protected with a transistor and diode, put total voltage drop here.
+const byte MISC = 20; // MISC pin that is high when on, low when off.
 
 byte track = 0x01; //Display show HEX value, not DEC. (A-F not "allowed")
 byte cd = 0x01; //1-10 is allowed (in HEX. 0A-0F and 1A-1F is not allowed)
-
 
 //volatile variables used inside AND outside of ISP
 volatile byte melbus_ReceivedByte = 0;
 volatile byte melbus_Bitposition = 7;
 volatile bool byteIsRead = false;
-
 
 byte byteToSend = 0;          //global to avoid unnecessary overhead
 bool reqMasterFlag = false;   //set this to request master mode (and sendtext) at a proper time.
@@ -156,8 +129,6 @@ const byte C3_Init_2[30] = {
   0xff, 0xff
 };
 const byte SO_C3_Init_2 = 30;
-
-
 
 
 //Defining the commands. First byte is the length of the command.
@@ -254,13 +225,9 @@ byte stopByte = 0x02; //same on powerdown
 byte cartridgeInfo[] = {0x00, 0xFC, 0xFF, 0x4A, 0xFC, 0xFF};
 
 
-
-
 /*
  *      **** SETUP ****
 */
-
-
 void setup() {
   //Disable timer0 interrupt. It's is only bogging down the system. We need speed!
   TIMSK0 &= ~_BV(TOIE0);
@@ -269,27 +236,12 @@ void setup() {
   pinMode(MELBUS_DATA, INPUT_PULLUP);
   pinMode(MELBUS_CLOCKBIT, INPUT_PULLUP);
   pinMode(MELBUS_BUSY, INPUT_PULLUP);
-  pinMode(nextPin, OUTPUT);
-  pinMode(prevPin, OUTPUT);
-  pinMode(playPin, OUTPUT);
-  digitalWrite(nextPin, LOW);
-  digitalWrite(playPin, LOW);
-  digitalWrite(prevPin, LOW);
-
-  //set analog pins A0 through A7 to output/off
-  for (byte i = 14; i < 22; i++) {
-    pinMode(i, OUTPUT);
-    digitalWrite(i, LOW);
-  }
-  pinMode(BATTERY, INPUT);
 
   //Initiate serial communication to debug via serial-usb (arduino)
   //Better off without it.
   //Serial printing takes a lot of time!!
   Serial.begin(115200);
   Serial.println("Calling HU");
-
-  recall(); //get stored states from EEPROM and output to the LED driver.
 
   //Activate interrupt on clock pin
   attachInterrupt(digitalPinToInterrupt(MELBUS_CLOCKBIT), MELBUS_CLOCK_INTERRUPT, RISING);
@@ -307,8 +259,6 @@ void setup() {
 
           **************************************************
 */
-
-
 void loop() {
   static byte lastByte = 0;     //used to copy volatile byte to register variable. See below
   static long runOnce = 300000;     //counts down on every received message from HU. Triggers when it is passing 1.
@@ -634,20 +584,18 @@ void loop() {
                     //toggleOutput(LEDMISC1); //turn on/off one output pin.
                     //Not used since it will be triggered by setting SAT1
                     break;
-                  case 0x2:
-                    nextTrack();  //unfortunately the steering wheel button equals btn #2
+                  case 0x2: //unfortunately the steering wheel button equals btn #2
                     break;
                   case 0x3:
-                    cycleLeft(); //change LED color
+                    //change LED color
                     break;
                   case 0x4:
-                    cycleRight(); //change LED color
+                    //change LED color
                     break;
                   case 0x5:
                     //not used for the moment
                     break;
                   case 0x6:   //unfortunately the steering wheel button equals btn #6
-                    prevTrack();
                     break;
                 }
                 //Serial.print("you pressed CD #");
@@ -658,7 +606,6 @@ void loop() {
               case 16:
                 byteToSend = 0x00;  //no idea what to answer
                 SendByteToMelbus();
-                nextTrack();
                 //Serial.println("NXT");
                 break;
 
@@ -666,7 +613,6 @@ void loop() {
               case 17:
                 byteToSend = 0x00;  //no idea what to answer
                 SendByteToMelbus();
-                prevTrack();
                 //Serial.println("PRV");
                 break;
 
@@ -674,7 +620,6 @@ void loop() {
               case 18:
                 byteToSend = 0x00;  //no idea what to answer
                 SendByteToMelbus();
-                play();
                 //Serial.println("SCN");
                 break;
 
@@ -716,7 +661,6 @@ void loop() {
                 track++;
                 fixTrack();
                 trackInfo[5] = track;
-                nextTrack();
                 break;
 
               //
@@ -724,7 +668,6 @@ void loop() {
                 track--;
                 fixTrack();
                 trackInfo[5] = track;
-                prevTrack();
                 break;
 
               //
@@ -772,7 +715,6 @@ void loop() {
               case 32:
                 byteToSend = 0x00;
                 SendByteToMelbus();
-                play();
                 break;
 
               //CDC_NU
@@ -854,14 +796,14 @@ void loop() {
     reqMasterFlag = false;
   }
 
-  if (runPeriodically == 0) {
-    float battery = getBatV();
-    String message = "BAT: " + String(battery, 1) + "V" + '\0';
-    runPeriodically = 100000;
-    textRow = 2;
-    message.getBytes(customText[textRow - 1], 36);
-    reqMaster();
-  }
+//  if (runPeriodically == 0) {
+//    float battery = getBatV();
+//    String message = "BAT: " + String(battery, 1) + "V" + '\0';
+//    runPeriodically = 100000;
+//    textRow = 2;
+//    message.getBytes(customText[textRow - 1], 36);
+//    reqMaster();
+//  }
 }
 
 
@@ -869,11 +811,6 @@ void loop() {
 /*
                 END LOOP
 */
-
-
-
-
-
 
 //Notify HU that we want to trigger the first initiate procedure to add a new device
 //(CD-CHGR/SAT etc) by pulling BUSY line low for 1s
@@ -1046,112 +983,6 @@ void reqMaster() {
   DDRD &= ~(1 << MELBUS_DATA); //back to input_pullup
 }
 
-void cycleRight() {
-  rgtClr++;
-  rgtClr &= 7;
-  store();
-  setLEDs();
-
-  String ststxt = colors[rgtClr];
-  for (byte b = 0; b < 36; b++) {
-    customText[3][b] = 0;   //textRow 4 = index 3
-  }
-  ststxt.getBytes(customText[3], 7);
-  textRow = 4;
-  reqMasterFlag = true;
-}
-
-void cycleLeft() {
-  lftClr++;
-  lftClr &= 7;
-  store();
-  setLEDs();
-
-  String ststxt = colors[lftClr];
-  for (byte b = 0; b < 36; b++) {
-    customText[2][b] = 0;   //textRow 3 = index 2
-  }
-  ststxt.getBytes(customText[2], 7);
-  textRow = 3;
-  reqMasterFlag = true;
-}
-
-
-
-
-void toggleOutput(byte pinNumber) {
-  digitalWrite(pinNumber, !digitalRead(pinNumber));
-  String ststxt = "";
-  String txt[] = {
-    "LFT ", "RGT ", "B", "G", "R"
-  };
-
-  byte pins = PINC & 0x3F;
-  store();  //to EEPROM. Will toast the memory after 100 000 changes.
-  for (byte b = 0; b < 5; b++) {
-    if (pins & (1 << b)) {
-      ststxt += txt[b];
-    }
-  }
-
-  //reset customText (global variable to send to the HU)
-  for (byte b = 0; b < 36; b++) {
-    customText[0][b] = 0;
-  }
-  ststxt.getBytes(customText[0], 36);  //copy ststxt into customText
-  textRow = 3;
-  reqMasterFlag = true;
-}
-
-//Simulate button presses on the BT module. 200 ms works good. Less is not more in this case...
-void nextTrack() {
-  digitalWrite(nextPin, HIGH);
-  for (byte i = 0; i < 200; i++)
-    delayMicroseconds(1000);
-  digitalWrite(nextPin, LOW);
-}
-
-void prevTrack() {
-  digitalWrite(prevPin, HIGH);
-  for (byte i = 0; i < 200; i++)
-    delayMicroseconds(1000);
-  digitalWrite(prevPin, LOW);
-}
-
-void play() {
-  digitalWrite(playPin, HIGH);
-  for (byte i = 0; i < 200; i++)
-    delayMicroseconds(1000);
-  digitalWrite(playPin, LOW);
-}
-
-
-//remember the state of the LEDs
-void store() {
-  EEPROM.update(EEPROM.length() - 2, lftClr);
-  EEPROM.update(EEPROM.length() - 1, rgtClr);
-}
-
-//reset the LEDs to last saved state
-void recall() {
-  //PINC = (PINC & 0xC0) | EEPROM.read(EEPROM.length() - 1);
-  lftClr = EEPROM.read(EEPROM.length() - 2);
-  rgtClr = EEPROM.read(EEPROM.length() - 1);
-  setLEDs();
-}
-
-void setLEDs() {
-  //Faster and easier to use PORTC directly but this is more readable. Maybe ;-)
-  //PORTC |= (lftClr)+(rgtClr<<3);
-  digitalWrite(LED_RED_LFT, (lftClr & B00000100) >> 2);
-  digitalWrite(LED_GRN_LFT, (lftClr & B00000010) >> 1);
-  digitalWrite(LED_BLU_LFT, lftClr & B00000001);
-  digitalWrite(LED_RED_RGT, (rgtClr & B00000100) >> 2);
-  digitalWrite(LED_GRN_RGT, (rgtClr & B00000010) >> 1);
-  digitalWrite(LED_BLU_RGT, rgtClr & B00000001);
-
-}
-
 void fixTrack() {
   //cut out A-F in each nibble, and skip "00"
   byte hn = track >> 4;
@@ -1191,12 +1022,10 @@ void changeCD() {
         case 0x83:
           cd = 3;
           track = 1;
-          cycleLeft();
           break;
         case 0x84:
           cd = 4;
           track = 1;
-          cycleRight();
           break;
         case 0x85:
           cd = 5;
@@ -1238,14 +1067,4 @@ void SendCartridgeInfo() {
   }
 }
 
-float getBatV() {
-  float a, bv;
-
-  a = analogRead(BATTERY) * 5.0 / 1023.0;
-  bv = a * (R_1 + R_2 + R_CAR) / R_1 + T_LOSS;
-  return bv;
-}
-
-
 //Happy listening AND READING, hacker!
-
