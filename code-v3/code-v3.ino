@@ -41,6 +41,8 @@ byte textLine[4][36] = {
     {"4"}
 };
 
+volatile bool isCommunicating = false;
+
 void setup()
 {
     //Disable timer0 interrupt. It's is only bogging down the system. We need speed!
@@ -73,46 +75,56 @@ void loop()
     byte byteCounter = 0;   //keep track of how many bytes is sent in current command
     byte receivedBytes[99]; // Keep track of received bytes.
 
-    byte matchIndex = -1;
+    byte matchIndex = 0;
 
     bool isBusy = !READ_BUSYPIN; // Get if busy line is high or low (active low).
 
     while (isBusy)
     {
-
         if (byteIsRead)
         {
             byteIsRead = false;
             lastByte = melbus_ReceivedByte; //copy volatile byte to register variable
             receivedBytes[byteCounter] = lastByte;
 
-            if (byteCounter >= MINIMUM_BYTES_RECEIVED_BEFORE_FINDING_MATCH - 1)
-            {
-                // Now we have received a minimum amount of bytes so we can start looking...
-
-                // Lets see if we can match any commands here...
-                matchIndex = findMatch(receivedBytes, byteCounter);
-                if (matchIndex != -1)
-                {
-                    // We found a match so lets break our while loop...
-                    respondToMatch(matchIndex);
-                    break;
-                }
-                // Else no match so we should wait for a new byte...
-            }
-
             // 1-up our byte counter
             byteCounter++;
+            // Serial.print(melbus_ReceivedByte, HEX);
         } // Else do nothing now. We are waiting for byteIsRead to be true, which is updated in our interrupt.
+
+        // We should do init here
+        if (!isCommunicating){
+
+        //if (byteCounter >= MINIMUM_BYTES_RECEIVED_BEFORE_FINDING_MATCH)
+        //{
+            // Now we have received a minimum amount of bytes so we can start looking...
+
+            // Lets see if we can match any commands here...
+            matchIndex = findMatch(receivedBytes, byteCounter);
+            if (matchIndex != 0)
+            {
+                isCommunicating = true;
+                // We found a match so lets break our while loop...
+                respondToMatch(matchIndex - 1);
+                // byteCounter = 0;
+                Serial.println(matchIndex);
+                isCommunicating = false;
+            }
+            // Serial.println("No match");
+            // Else no match so we should wait for a new byte...
+        //}
+        }
 
         isBusy = !READ_BUSYPIN;
     }
 
     // Reset
     melbus_Bitposition = 7;
-
-    Serial.print("Received bytes: ");
-    printBytes(receivedBytes, byteCounter);
+    byteCounter = 0;
+    if (byteCounter > 0) {
+        Serial.print("Received bytes: ");
+        printBytes(receivedBytes, byteCounter);
+    }
 }
 
 // Tries to find a match in commands list.
@@ -121,44 +133,57 @@ byte findMatch(byte receivedBytes[], byte len)
     // Loop through all commands.
     for (byte cmd = 0; cmd < listLen; cmd++)
     {
+        // printBytes(receivedBytes, len);
         bool isMatch = false;
         byte amountOfMatchingBytes = 0;
         bool goToNext = false;
 
-        // Loop through all bytes
-        for (byte pos = 0; pos < len; pos++)
-        {
-            // If byte matches...
-            if (receivedBytes[pos] == commands[cmd][pos + 1])
-            {
-                amountOfMatchingBytes++;
-            }
-            else
-            {
-                // If there is no match, skip this and continue to next one.
-                goToNext = true;
-                break;
-            }
-
-            if (amountOfMatchingBytes == commands[cmd][0])
-            {
-                isMatch = true;
-                break;
-            }
-        }
-
-        if (goToNext)
-        {
+        if (len != commands[cmd][0]) {
             continue;
         }
 
-        if (isMatch)
+        // Quick check for match first 3 bits
+        if (receivedBytes[0] == commands[cmd][1] &&
+            receivedBytes[1] == commands[cmd][2] &&
+            receivedBytes[2] == commands[cmd][3])
         {
-            return cmd;
+            return cmd + 1;
         }
+
+        // // Loop through all bytes
+        // for (byte pos = 0; pos < len; pos++)
+        // {
+        //     // If byte matches...
+        //     if (receivedBytes[pos] == commands[cmd][pos + 1])
+        //     {
+        //         amountOfMatchingBytes++;
+        //     }
+        //     else
+        //     {
+        //         // If there is no match, skip this and continue to next one.
+        //         goToNext = true;
+        //         break;
+        //     }
+
+        //     if (amountOfMatchingBytes == commands[cmd][0])
+        //     {
+        //         isMatch = true;
+        //         break;
+        //     }
+        // }
+
+        // if (goToNext)
+        // {
+        //     continue;
+        // }
+
+        // if (isMatch)
+        // {
+        //     return cmd + 1;
+        // }
     }
 
-    return -1;
+    return 0;
 }
 
 // Responds to a command.
@@ -205,6 +230,7 @@ void respondToMatch(byte matchIndex)
                 }
             }
         }
+        Serial.println("Main init done!");
         break;
 
     case 2: // Secondary init
@@ -275,6 +301,7 @@ void respondToMatch(byte matchIndex)
                 }
             }
         }
+        Serial.println("MRB_2 done");
         break;
     case 6: // CMD_3
         sendByteToMelbus(0x10);
@@ -461,9 +488,6 @@ void respondToMatch(byte matchIndex)
         Serial.println("def: 0x00");
         break;
     }
-
-    Serial.print("Responded to match: ");
-    Serial.println(matchIndex, DEC);
 }
 
 //Notify HU that we want to trigger the first initiate procedure to add a new device by pulling BUSY line low for 1s
@@ -565,6 +589,7 @@ void sendByteToMelbus(byte byteToSend)
 
 void printBytes(byte bytes[], byte len)
 {
+    Serial.println("print bytes");
     for (byte b = 0; b < len; b++)
     {
         Serial.print(bytes[b], HEX);
@@ -575,6 +600,7 @@ void printBytes(byte bytes[], byte len)
 
 void SendTrackInfo()
 {
+    Serial.println("Sending track info");
     for (byte i = 0; i < 9; i++)
     {
         sendByteToMelbus(trackInfo[i]);
@@ -584,6 +610,7 @@ void SendTrackInfo()
 
 void SendCartridgeInfo()
 {
+    Serial.println("Sending cartridge info");
     for (byte i = 0; i < 6; i++)
     {
         sendByteToMelbus(cartridgeInfo[i]);

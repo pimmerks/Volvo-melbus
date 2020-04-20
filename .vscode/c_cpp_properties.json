@@ -5,10 +5,13 @@
             "includePath": [
                 "${workspaceRoot}/",
                 "D:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\**",
-                "D:\\Program Files (x86)\\Arduino\\tools\\**"
+                "D:\\Program Files (x86)\\Arduino\\tools\\**",
+                "/home/pimmer/Downloads/arduino-1.8.12/hardware/arduino/avr/**",
+                "/home/pimmer/Downloads/arduino-1.8.12/tools/**"
             ],
             "forcedInclude": [
-                "D:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\cores\\arduino\\Arduino.h"
+                "D:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\cores\\arduino\\Arduino.h",
+                "/home/pimmer/Downloads/arduino-1.8.12/hardware/arduino/avr/cores/arduino/Arduino.h"
             ],
             "defines": [
                 "__CC_ARM",
