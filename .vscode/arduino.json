@@ -1,5 +1,5 @@
 {
     "board": "arduino:avr:nano",
     "configuration": "cpu=atmega328old",
-    "sketch": "code\\code.ino"
+    "sketch": "code-v2/code-v2.ino"
 }

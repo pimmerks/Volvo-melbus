@@ -24,18 +24,18 @@ bool reqMasterFlag = false;   //set this to request master mode (and sendtext) a
 byte textHeader[] = {0xFC, 0xC6, 0x73, 0x01};
 byte textRow = 2;
 byte customText[4][36] = {
-  {""},
-  {"visualapproach"},
-  {""},
-  {""}
+  {"1"},
+  {"2"},
+  {"3"},
+  {"4"}
 };
 
 //HU asks for line 3 and 4 below at startup. They can be overwritten by customText if you change textRow to 3 or 4
 byte textLine[4][36] = {
-  {"Line 1"},           //is overwritten by init-sequence ("Volvo!")
-  {"Line 2"},           //is overwritten by customText[1][]
-  {"3=cycle L col"},    //changes if pressing 3-button
-  {"4=cycle R col"}     //changes if pressing 4-button
+  {"1"},           //is overwritten by init-sequence ("Volvo!")
+  {"2"},           //is overwritten by customText[1][]
+  {"3"},    //changes if pressing 3-button
+  {"4"}     //changes if pressing 4-button
 };
 
 // some CDC (CD-CHANGER) data
@@ -71,7 +71,7 @@ void setup() {
 void loop() {
   static byte lastByte = 0;     //used to copy volatile byte to register variable. See below
   static long runOnce = 300000;     //counts down on every received message from HU. Triggers when it is passing 1.
-  static long runPeriodically = 100000; //same as runOnce but resets after each countdown.
+  static long runPeriodically = 1000;// 100000; //same as runOnce but resets after each countdown.
   static bool powerOn = true;
   static long HWTicks = 0;      //age since last BUSY switch
   static long ComTicks = 0;     //age since last received byte
@@ -126,7 +126,7 @@ void loop() {
                     if (melbus_ReceivedByte == MASTER_ID) {
                       byteToSend = MASTER_ID;
                       SendByteToMelbus();
-                      SendText(textRow);
+                      SendText(textRow, "MRB1");
                       //Serial.println("MRB1");
                       break;
                     }
@@ -219,13 +219,13 @@ void loop() {
                     if (melbus_ReceivedByte == MASTER_ID) {
                       byteToSend = MASTER_ID;
                       SendByteToMelbus();
-                      SendText(textRow);
+                      SendText(textRow, "MRB2");
                       //Serial.println("MRB2");
                       break;
                     }
                   }
                 }
-                //Serial.println("MRB 2");
+                Serial.println("MRB 2");
                 break;
 
               // CMD_3,  // 6 unknown. Answer: 0x10, 0x80, 0x92
@@ -385,13 +385,14 @@ void loop() {
                 byteToSend = 255; //0x00;  //no idea what to answer
                 SendByteToMelbus();
 
+                Serial.print("Pressed button: ");
+                Serial.println(b1, HEX);
+
                 switch (b1) {
                   //0x1 to 0x6 corresponds to cd buttons 1 to 6 on the HU (650) (SAT 1)
                   //7-13 on SAT 2, and 14-20 on SAT 3
                   //button 1 is always sent (once) when switching to SAT1.
                   case 0x1:
-                    //toggleOutput(LEDMISC1); //turn on/off one output pin.
-                    //Not used since it will be triggered by setting SAT1
                     break;
                   case 0x2: //unfortunately the steering wheel button equals btn #2
                     break;
@@ -407,36 +408,34 @@ void loop() {
                   case 0x6:   //unfortunately the steering wheel button equals btn #6
                     break;
                 }
-                //Serial.print("you pressed CD #");
-                //Serial.println(b1);
                 break;
 
               //NXT
               case 16:
                 byteToSend = 0x00;  //no idea what to answer
                 SendByteToMelbus();
-                //Serial.println("NXT");
+                Serial.println("NXT");
                 break;
 
               //PRV
               case 17:
                 byteToSend = 0x00;  //no idea what to answer
                 SendByteToMelbus();
-                //Serial.println("PRV");
+                Serial.println("PRV");
                 break;
 
               //SCN
               case 18:
                 byteToSend = 0x00;  //no idea what to answer
                 SendByteToMelbus();
-                //Serial.println("SCN");
+                Serial.println("SCN");
                 break;
 
               //PWR OFF
               case 19:
                 byteToSend = 0x00;  //no idea what to answer
                 SendByteToMelbus();
-                //Serial.println("Power down");
+                Serial.println("Power down");
                 powerOn = false;
                 digitalWrite(MISC, LOW);
                 break;
@@ -445,13 +444,13 @@ void loop() {
               case 20:
                 byteToSend = 0x00;  //no idea what to answer
                 SendByteToMelbus();
-                //Serial.println("Power stby");
+                Serial.println("Power stby");
                 powerOn = false;
                 break;
 
               //IGN_OFF
               case 21:
-                //Serial.println("Ignition OFF");
+                Serial.println("Ignition OFF");
                 powerOn = false;
                 break;
 
@@ -470,6 +469,7 @@ void loop() {
                 track++;
                 fixTrack();
                 trackInfo[5] = track;
+                Serial.println("Track++");
                 break;
 
               //
@@ -477,6 +477,7 @@ void loop() {
                 track--;
                 fixTrack();
                 trackInfo[5] = track;
+                Serial.println("Track--");
                 break;
 
               //
@@ -491,6 +492,7 @@ void loop() {
                 trackInfo[1] = startByte;
                 trackInfo[8] = startByte;
                 digitalWrite(MISC, HIGH);
+                Serial.println("CDC_PUP");
                 break;
 
               //CDC_PDN
@@ -500,45 +502,55 @@ void loop() {
                 trackInfo[1] = stopByte;
                 trackInfo[8] = stopByte;
                 digitalWrite(MISC, LOW);
+                Serial.println("CDC_PDN");
                 break;
 
               //CDC_FFW
               case 29:
                 byteToSend = 0x00;
                 SendByteToMelbus();
+                Serial.println("CDC_FFW");
                 break;
 
               //CDC_FRW
               case 30:
                 byteToSend = 0x00;
                 SendByteToMelbus();
+                Serial.println("CDC_FRW");
                 break;
 
               //CDC_SCN
               case 31:
                 byteToSend = 0x00;
                 SendByteToMelbus();
+                Serial.println("CDC_SCN");
                 break;
 
               //CDC_RND
               case 32:
                 byteToSend = 0x00;
                 SendByteToMelbus();
+                Serial.println("CDC_RND");
                 break;
 
               //CDC_NU
               case 33:
-
+                Serial.println("CDC_NU");
                 break;
-
             } //end switch
+
             Serial.println(cmd);
             break;    //bail for loop. (Not meaningful to search more commands if one is already found)
+
           } //end if command found
+
         } //end if lastbyte matches
+
       }  //end for cmd loop
       byteCounter++;
+
     }  //end if byteisread
+    
     //Update status of BUSY line, so we don't end up in an infinite while-loop.
     BUSY = PIND & (1 << MELBUS_BUSY);
   }
@@ -549,6 +561,7 @@ void loop() {
   //Printing transmission log (from HU, excluding our answer and things after it)
   //if (ComTicks == 0) {                    //print all messages
   if (ComTicks == 0 && ConnTicks != 0) {    //print unmatched messages (unknown)
+    Serial.print("Log of unmatched bytes: ");
     for (byte b = 0; b < byteCounter - 1; b++) {
       Serial.print(melbus_log[b], HEX);
       Serial.print(" ");
@@ -606,12 +619,18 @@ void loop() {
   }
 
  if (runPeriodically == 0) {
-   String message = "BAT: V" + '\0';
+  Serial.println("run period");
+   // String message = "BAT: V" + '\0';
    runPeriodically = 100000;
-   textRow = 2;
-   message.getBytes(customText[textRow - 1], 36);
-   SendText(1);
+   
+   // textRow = 2;
+   // message.getBytes(customText[textRow - 1], 36);
+   // SendText(0);
+   // SendText(1);
+   // SendText(2);
+   // SendText(3);
    reqMaster();
+   SendText(0, "Testing...");
  }
 }
 
@@ -727,7 +746,10 @@ void MELBUS_CLOCK_INTERRUPT() {
   }
 }
 
-void SendText(byte rowNum) {
+void SendText(byte rowNum, String text) {
+  byte bytesToSend[36];
+  text.getBytes(bytesToSend, 36);
+
   //Disable interrupt on INT_NUM quicker than: detachInterrupt(MELBUS_CLOCKBIT_INT);
   EIMSK &= ~(1 << INT_NUM);
 
@@ -750,7 +772,7 @@ void SendText(byte rowNum) {
 
   //send text
   for (byte b = 0; b < 36; b++) {
-    byteToSend = customText[rowNum - 1][b];
+    byteToSend = bytesToSend[b];
     SendByteToMelbus2();
   }
 
@@ -766,7 +788,7 @@ void SendText(byte rowNum) {
   EIMSK |= (1 << INT_NUM);
 
   for (byte b = 0; b < 36; b++) {
-    Serial.print(char(customText[rowNum - 1][b]));
+    Serial.print(char(bytesToSend[b]));
   }
   Serial.println("  END");
 }
@@ -804,11 +826,12 @@ void fixTrack() {
 }
 
 void changeCD() {
-  Serial.println("changeCD");
+  byte b = 0x00;
   while (!(PIND & (1 << MELBUS_BUSY))) {
     if (byteIsRead) {
       byteIsRead = false;
-      switch (melbus_ReceivedByte) {
+      b=melbus_ReceivedByte;
+      switch (b) {
         //0x81 to 0x86 corresponds to cd buttons 1 to 6 on the HU (650)
         case 0x81:
           cd = 1;
@@ -846,8 +869,11 @@ void changeCD() {
           track = 1;
           break;
       }
+      Serial.print("Change cd:");
+      Serial.println(b, HEX);
     }
   }
+  
   cd = 1;
   track = 1;
   trackInfo[3] = cd;
@@ -858,7 +884,7 @@ void SendTrackInfo() {
   for (byte i = 0; i < 9; i++) {
     byteToSend = trackInfo[i];
     SendByteToMelbus();
-    delayMicroseconds(20);
+    delayMicroseconds(10);
   }
 }
 
@@ -866,6 +892,7 @@ void SendCartridgeInfo() {
   for (byte i = 0; i < 6; i++) {
     byteToSend = cartridgeInfo[i];
     SendByteToMelbus();
+    delayMicroseconds(10);
   }
 }
 
