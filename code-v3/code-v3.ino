@@ -19,9 +19,27 @@ byte cd = 1;
 byte track = 1;
 
 byte trackInfo[] = {0x00, 0x02, 0x00, cd, 0x80, track, 0xC7, 0x0A, 0x02}; //9 bytes
-byte startByte = 0x08; //on powerup - change trackInfo[1] & [8] to this
-byte stopByte = 0x02; //same on powerdown
+byte startByte = 0x08;                                                    //on powerup - change trackInfo[1] & [8] to this
+byte stopByte = 0x02;                                                     //same on powerdown
 byte cartridgeInfo[] = {0x00, 0xFC, 0xFF, 0x4A, 0xFC, 0xFF};
+
+bool reqMasterFlag = false; //set this to request master mode (and sendtext) at a proper time.
+
+byte textHeader[] = {0xFC, 0xC6, 0x73, 0x01};
+byte textRow = 2;
+byte customText[4][36] = {
+    {"1"},
+    {"2"},
+    {"3"},
+    {"4"}};
+
+//HU asks for line 3 and 4 below at startup. They can be overwritten by customText if you change textRow to 3 or 4
+byte textLine[4][36] = {
+    {"1"},
+    {"2"},
+    {"3"},
+    {"4"}
+};
 
 void setup()
 {
@@ -163,6 +181,7 @@ void respondToMatch(byte matchIndex)
                 {
                     sendByteToMelbus(MASTER_ID);
                     // I think here we can send text to display.
+                    SendText(textRow);
                     break;
                 }
             }
@@ -206,7 +225,7 @@ void respondToMatch(byte matchIndex)
         }
         break;
     case 3: // CMD_1, answer with 0x10 i guess?
-        
+
         while (!READ_BUSYPIN)
         {
             // we read 3 different tuple bytes (0x00 92), (01,3) and (02,5), response is always 0x10;
@@ -251,6 +270,7 @@ void respondToMatch(byte matchIndex)
                 if (melbus_ReceivedByte == MASTER_ID)
                 {
                     sendByteToMelbus(MASTER_ID);
+                    SendText(textRow);
                     break;
                 }
             }
@@ -387,7 +407,7 @@ void respondToMatch(byte matchIndex)
         sendByteToMelbus(0x00); //no idea what to answer
         sendByteToMelbus(0x00); //no idea what to answer
         sendByteToMelbus(0x00); //no idea what to answer
-        
+
         Serial.print("Pressed button: ");
         Serial.println(b1, HEX);
 
@@ -410,11 +430,13 @@ void respondToMatch(byte matchIndex)
     case 25: // CDC_PRV Prv Track
         Serial.println("Track--");
         break;
-    
+
     case 26: // Change CD
         byte b = 0x00;
-        while (!READ_BUSYPIN) {
-            if (byteIsRead) {
+        while (!READ_BUSYPIN)
+        {
+            if (byteIsRead)
+            {
                 byteIsRead = false;
                 b = melbus_ReceivedByte;
             }
@@ -551,16 +573,106 @@ void printBytes(byte bytes[], byte len)
     Serial.println();
 }
 
-void SendTrackInfo() {
-  for (byte i = 0; i < 9; i++) {
-    sendByteToMelbus(trackInfo[i]);
-    // delayMicroseconds(10);
-  }
+void SendTrackInfo()
+{
+    for (byte i = 0; i < 9; i++)
+    {
+        sendByteToMelbus(trackInfo[i]);
+        // delayMicroseconds(10);
+    }
 }
 
-void SendCartridgeInfo() {
-  for (byte i = 0; i < 6; i++) {
-    sendByteToMelbus(cartridgeInfo[i]);
-    // delayMicroseconds(10);
-  }
+void SendCartridgeInfo()
+{
+    for (byte i = 0; i < 6; i++)
+    {
+        sendByteToMelbus(cartridgeInfo[i]);
+        // delayMicroseconds(10);
+    }
+}
+
+//This method generates our own clock. Used when in master mode.
+void sendByteToMelbus2(byte byteToSend)
+{
+    delayMicroseconds(700);
+    //For each bit in the byte
+    //char, since it will go negative. byte 0..255, char -128..127
+    //int takes more clockcycles to update on a 8-bit CPU.
+    for (char i = 7; i >= 0; i--)
+    {
+        delayMicroseconds(7);
+        SET_CLOCKPIN_LOW;
+
+        //If bit [i] is "1" - make datapin high
+        if (byteToSend & (1 << i))
+        {
+            SET_DATAPIN_HIGH;
+        }
+        //if bit [i] is "0" - make datapin low
+        else
+        {
+            SET_DATAPIN_LOW;
+        }
+        //wait for output to settle
+        delayMicroseconds(5);
+        SET_CLOCKPIN_HIGH;
+    }
+    //wait for HU to read the byte
+    delayMicroseconds(20);
+}
+
+void SendText(byte rowNum)
+{
+    //Disable interrupt on INT_NUM quicker than: detachInterrupt(MELBUS_CLOCKBIT_INT);
+    DISABLE_CLOCK_INTERRUPT;
+
+    //Convert datapin and clockpin to output
+    SET_DATAPIN_HIGH;
+    SET_DATAPIN_AS_OUTPUT;
+    SET_CLOCKPIN_HIGH;
+    SET_CLOCKPIN_AS_OUTPUT;
+
+    //send header
+    for (byte b = 0; b < 4; b++)
+    {
+        sendByteToMelbus2(textHeader[b]);
+    }
+
+    //send which row to show it on
+    sendByteToMelbus2(rowNum);
+
+    //send text
+    for (byte b = 0; b < 36; b++)
+    {
+        sendByteToMelbus2(customText[rowNum - 1][b]);
+    }
+
+    SET_CLOCKPIN_AS_INPUT;  //back to input (PULLUP since we clocked in the last bit with clk = high)
+    //Reset datapin to high and return it to an input
+    //pinMode(MELBUS_DATA, INPUT_PULLUP);
+    SET_DATAPIN_HIGH;
+    SET_DATAPIN_AS_INPUT; //this may or may not change the state, depending on the last transmitted bit
+    PORTD |= 1 << MELBUS_DATA; //release the data line
+
+    //Clear INT flag
+    CLEAR_CLOCK_INTERRUPT_FLAG;
+    //Enable interrupt on INT_NUM, quicker than: attachInterrupt(MELBUS_CLOCKBIT_INT, MELBUS_CLOCK_INTERRUPT, RISING);
+    ENABLE_CLOCK_INTERRUPT;
+
+    for (byte b = 0; b < 36; b++)
+    {
+        Serial.print(char(customText[rowNum - 1][b]));
+    }
+    Serial.println(" END");
+}
+
+void reqMaster()
+{
+    SET_DATAPIN_AS_OUTPUT;
+    SET_DATAPIN_LOW;
+    delayMicroseconds(700);
+    delayMicroseconds(800);
+    delayMicroseconds(800);
+    SET_DATAPIN_HIGH;
+    SET_DATAPIN_AS_INPUT;
 }
