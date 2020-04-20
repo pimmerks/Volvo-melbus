@@ -75,7 +75,7 @@ void loop()
     byte byteCounter = 0;   //keep track of how many bytes is sent in current command
     byte receivedBytes[99]; // Keep track of received bytes.
 
-    byte matchIndex = 0;
+    byte matchIndex = 0xFF; // Default for no match found...
 
     bool isBusy = !READ_BUSYPIN; // Get if busy line is high or low (active low).
 
@@ -87,10 +87,10 @@ void loop()
             lastByte = melbus_ReceivedByte; //copy volatile byte to register variable
             receivedBytes[byteCounter] = lastByte;
 
-            // 1-up our byte counter
+            // 1-up our byte counter so we can insert the next one
             byteCounter++;
             // Serial.print(melbus_ReceivedByte, HEX);
-        } // Else do nothing now. We are waiting for byteIsRead to be true, which is updated in our interrupt.
+        }
 
         // We should do init here
         if (!isCommunicating){
@@ -101,11 +101,11 @@ void loop()
 
             // Lets see if we can match any commands here...
             matchIndex = findMatch(receivedBytes, byteCounter);
-            if (matchIndex != 0)
+            if (matchIndex != 0xFF)
             {
                 isCommunicating = true;
                 // We found a match so lets break our while loop...
-                respondToMatch(matchIndex - 1);
+                respondToMatch(matchIndex);
                 // byteCounter = 0;
                 Serial.println(matchIndex);
                 isCommunicating = false;
@@ -121,10 +121,6 @@ void loop()
     // Reset
     melbus_Bitposition = 7;
     byteCounter = 0;
-    if (byteCounter > 0) {
-        Serial.print("Received bytes: ");
-        printBytes(receivedBytes, byteCounter);
-    }
 }
 
 // Tries to find a match in commands list.
@@ -147,7 +143,7 @@ byte findMatch(byte receivedBytes[], byte len)
             receivedBytes[1] == commands[cmd][2] &&
             receivedBytes[2] == commands[cmd][3])
         {
-            return cmd + 1;
+            return cmd;
         }
 
         // // Loop through all bytes
