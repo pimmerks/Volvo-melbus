@@ -1,3 +1,6 @@
+#pragma GCC optimize ("-O0")
+#pragma GCC push_options
+
 #pragma region Pin definition
 #define INT_NUM (byte)1      // Interrupt number - seems like this should be 1 on nano with clockpin == 3.
 #define MELBUS_CLOCK (byte)3 // Pin D3 - CLK
@@ -92,12 +95,7 @@ void loop()
             // Serial.print(melbus_ReceivedByte, HEX);
         }
 
-        // We should do init here
         if (!isCommunicating){
-
-        //if (byteCounter >= MINIMUM_BYTES_RECEIVED_BEFORE_FINDING_MATCH)
-        //{
-            // Now we have received a minimum amount of bytes so we can start looking...
 
             // Lets see if we can match any commands here...
             matchIndex = findMatch(receivedBytes, byteCounter);
@@ -110,9 +108,6 @@ void loop()
                 Serial.println(matchIndex);
                 isCommunicating = false;
             }
-            // Serial.println("No match");
-            // Else no match so we should wait for a new byte...
-        //}
         }
 
         isBusy = !READ_BUSYPIN;
@@ -127,13 +122,9 @@ void loop()
 byte findMatch(byte receivedBytes[], byte len)
 {
     // Loop through all commands.
+
     for (byte cmd = 0; cmd < listLen; cmd++)
     {
-        // printBytes(receivedBytes, len);
-        bool isMatch = false;
-        byte amountOfMatchingBytes = 0;
-        bool goToNext = false;
-
         if (len != commands[cmd][0]) {
             continue;
         }
@@ -673,3 +664,5 @@ void reqMaster()
     SET_DATAPIN_HIGH;
     SET_DATAPIN_AS_INPUT;
 }
+
+#pragma GCC pop_options
