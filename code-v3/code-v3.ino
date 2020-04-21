@@ -189,114 +189,81 @@ void respondToMatch(byte matchIndex)
     byte b1 = 0;
     byte b2 = 0;
 
+    byte readBuffer[32];
+
     switch (matchIndex)
     {
     case 0: // MRB_1
         //wait for master_id and respond with same
-        while (!READ_BUSYPIN)
+
+        waitForNextBytes(readBuffer, 1);
+        if (readBuffer[0] == MASTER_ID)
         {
-            if (byteIsRead)
-            {
-                byteIsRead = false;
-                if (melbus_ReceivedByte == MASTER_ID)
-                {
-                    sendByteToMelbus(MASTER_ID);
-                    // I think here we can send text to display.
-                    SendText(textRow);
-                    break;
-                }
-            }
+            sendByteToMelbus(MASTER_ID);
+            // I think here we can send text to display.
+            SendText(textRow);
+            break;
         }
         break;
 
     case 1: // Main init
         // Wait for base_id and respond with response_id
-        while (!READ_BUSYPIN)
+        waitForNextBytes(readBuffer, 1);
+
+        if (readBuffer[0] == BASE_ID)
         {
-            if (byteIsRead)
-            {
-                byteIsRead = false;
-                if (melbus_ReceivedByte == BASE_ID)
-                {
-                    sendByteToMelbus(RESPONSE_ID);
-                }
-                else if (melbus_ReceivedByte == CDC_BASE_ID)
-                {
-                    sendByteToMelbus(CDC_RESPONSE_ID);
-                }
-            }
+            sendByteToMelbus(RESPONSE_ID);
         }
+        else if (readBuffer[0] == CDC_BASE_ID)
+        {
+            sendByteToMelbus(CDC_RESPONSE_ID);
+        }
+
         Serial.println("Main init done!");
         break;
 
     case 2: // Secondary init
-        while (!READ_BUSYPIN)
+        waitForNextBytes(readBuffer, 1);
+
+        if (readBuffer[0] == CDC_BASE_ID)
         {
-            if (byteIsRead)
-            {
-                byteIsRead = false;
-                if (melbus_ReceivedByte == CDC_BASE_ID)
-                {
-                    sendByteToMelbus(CDC_RESPONSE_ID);
-                }
-                else if (melbus_ReceivedByte == BASE_ID)
-                {
-                    sendByteToMelbus(RESPONSE_ID);
-                }
-            }
+            sendByteToMelbus(CDC_RESPONSE_ID);
+        }
+        else if (readBuffer[0] == BASE_ID)
+        {
+            sendByteToMelbus(RESPONSE_ID);
         }
         break;
     case 3: // CMD_1, answer with 0x10 i guess?
+        // we read 3 different tuple bytes (0x00 92), (01,3) and (02,5), response is always 0x10;
+        waitForNextBytes(readBuffer, 3);
+        sendByteToMelbus(0x10);
+        // TODO: Maybe 3 should be 2 ???
+        Serial.println("c3");
+        printBytes(readBuffer, 3);
 
-        while (!READ_BUSYPIN)
-        {
-            // we read 3 different tuple bytes (0x00 92), (01,3) and (02,5), response is always 0x10;
-            if (byteIsRead)
-            {
-                byteIsRead = false;
-                cnt++;
-            }
-            if (cnt == 2)
-            {
-                sendByteToMelbus(0x10);
-                break;
-            }
-        }
         break;
+
     case 4: // PUP. Power on?
         // {0xC0, 0x1C, 0x70, 0x02} we respond 0x90;
-        while (!READ_BUSYPIN)
-        {
-            // we read 3 different tuple bytes (0x00 92), (01,3) and (02,5), response is always 0x10;
-            if (byteIsRead)
-            {
-                byteIsRead = false;
-                cnt++;
-            }
-            if (cnt == 2)
-            {
-                sendByteToMelbus(0x90);
-                break;
-            }
-        }
+        waitForNextBytes(readBuffer, 2);
+        sendByteToMelbus(0x90);
+        Serial.println("c4");
+        printBytes(readBuffer, 2);
+
         break;
     case 5: // MRB_2
         // {00 1E EC };
         //wait for master_id and respond with same
-        while (!READ_BUSYPIN)
+        waitForNextBytes(readBuffer, 1);
+
+        if (readBuffer[0] == MASTER_ID)
         {
-            // we read 3 different tuple bytes (0x00 92), (01,3) and (02,5), response is always 0x10;
-            if (byteIsRead)
-            {
-                byteIsRead = false;
-                if (melbus_ReceivedByte == MASTER_ID)
-                {
-                    sendByteToMelbus(MASTER_ID);
-                    SendText(textRow);
-                    break;
-                }
-            }
+            sendByteToMelbus(MASTER_ID);
+            SendText(textRow);
+            break;
         }
+
         Serial.println("MRB_2 done");
         break;
     case 6: // CMD_3
@@ -304,42 +271,29 @@ void respondToMatch(byte matchIndex)
         sendByteToMelbus(0x80);
         sendByteToMelbus(0x92);
         break;
+
     case 7: // C1_1
-        for (byte i = 0; i < SO_C1_Init_1; i++)
-        {
-            sendByteToMelbus(C1_Init_1[i]);
-        }
+        sendBytesToMelbus(C1_Init_1, SO_C1_Init_1);
         break;
 
     case 8: // C1_2, 8 respond with c1_init_2 (contains text)
-        for (byte i = 0; i < SO_C1_Init_2; i++)
-        {
-            sendByteToMelbus(C1_Init_2[i]);
-        }
+        sendBytesToMelbus(C1_Init_2, SO_C1_Init_2);
         break;
 
     case 9: // C3_0, 9 respond with c3_init_0
-        for (byte i = 0; i < SO_C3_Init_0; i++)
-        {
-            sendByteToMelbus(C3_Init_0[i]);
-        }
+        sendBytesToMelbus(C3_Init_0, SO_C3_Init_0);
         break;
 
     case 10: // C3_1, 10 respond with c3_init_1
-        for (byte i = 0; i < SO_C3_Init_1; i++)
-        {
-            sendByteToMelbus(C3_Init_1[i]);
-        }
+        sendBytesToMelbus(C3_Init_1, SO_C3_Init_1);
         break;
 
     case 11: // C3_2, 11 respond with c3_init_2
-        for (byte i = 0; i < SO_C3_Init_2; i++)
-        {
-            sendByteToMelbus(C3_Init_2[i]);
-        }
+        sendBytesToMelbus(C3_Init_2, SO_C3_Init_2);
         break;
 
     case 12: // C2_0, 12 get next byte (nn) and respond with 10, 0, nn, 0,0 and (14 times 0x20) possibly a text field?
+        
         while (!READ_BUSYPIN)
         {
             if (byteIsRead)
@@ -392,7 +346,7 @@ void respondToMatch(byte matchIndex)
                 break;
             }
         }
-        while (!(PIND & (1 << MELBUS_BUSY)))
+        while (!READ_BUSYPIN)
         {
             if (byteIsRead)
             {
@@ -486,6 +440,25 @@ void respondToMatch(byte matchIndex)
     }
 }
 
+void waitForNextBytes(byte buffer[], byte bufferLength)
+{
+    byte receivedBytes = 0;
+    while (!READ_BUSYPIN) // While busy pin is active (low)
+    {
+        if (byteIsRead)
+        {
+            byteIsRead = false;
+            buffer[receivedBytes] = melbus_ReceivedByte;
+            receivedBytes++;
+
+            if (receivedBytes == bufferLength)
+            {
+                break;
+            }
+        }
+    }
+}
+
 //Notify HU that we want to trigger the first initiate procedure to add a new device by pulling BUSY line low for 1s
 void melbusInitReq()
 {
@@ -543,6 +516,15 @@ void MELBUS_CLOCK_INTERRUPT()
     }
 }
 
+// Send multiple bytes to melbus.
+void sendBytesToMelbus(const byte bytesToSend[], byte length)
+{
+    for (byte i = 0; i < length; i++)
+    {
+        sendByteToMelbus(bytesToSend[i]);
+    }
+}
+
 //This is a function that sends a byte to the HU - (not using interrupts)
 void sendByteToMelbus(byte byteToSend)
 {
@@ -596,22 +578,14 @@ void printBytes(byte bytes[], byte len)
 
 void SendTrackInfo()
 {
-    Serial.println("Sending track info");
-    for (byte i = 0; i < 9; i++)
-    {
-        sendByteToMelbus(trackInfo[i]);
-        // delayMicroseconds(10);
-    }
+    sendBytesToMelbus(trackInfo, 9);
+    Serial.println("Send track info");
 }
 
 void SendCartridgeInfo()
 {
-    Serial.println("Sending cartridge info");
-    for (byte i = 0; i < 6; i++)
-    {
-        sendByteToMelbus(cartridgeInfo[i]);
-        // delayMicroseconds(10);
-    }
+    sendBytesToMelbus(cartridgeInfo, 6);
+    Serial.println("Send cartridge info");
 }
 
 //This method generates our own clock. Used when in master mode.
